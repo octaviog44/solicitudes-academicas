@@ -48,7 +48,10 @@ def main():
             if not res:
                 print("(sin resultados)")
             for s in res:
-                print(f"#{s['id']} | {s['apellido']}, {s['nombre']} | {s['tipo']} | {s['estado']}")
+                print(
+                    f"#{s.id} | {s.estudiante.apellido}, {s.estudiante.nombre} | "
+                    f"{s.tipo.value} | {s.estado.value}"
+                )
         elif op == "5":
             g.listar()
         elif op == "6":

@@ -1,11 +1,12 @@
 # src/gestor.py
-# Versión refactorizada - Commit 1: Replace Magic Strings -> Enums
+# Versión refactorizada - Commit 2: Extract Class -> Solicitud con invariantes
 import json
 import os
-from datetime import datetime
 
 from dominio import (
     Estado,
+    Estudiante,
+    Solicitud,
     parse_estado,
     parse_prioridad,
     parse_tipo,
@@ -16,7 +17,7 @@ RUTA_DATOS = "datos/solicitudes.json"
 
 class GestorSolicitudes:
     def __init__(self):
-        self.solicitudes = []
+        self.solicitudes: list[Solicitud] = []
         self.contador = 1
         self.cargar()
 
@@ -26,7 +27,9 @@ class GestorSolicitudes:
             try:
                 with open(RUTA_DATOS, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    self.solicitudes = data.get("solicitudes", [])
+                    self.solicitudes = [
+                        Solicitud.from_dict(s) for s in data.get("solicitudes", [])
+                    ]
                     self.contador = data.get("contador", 1)
             except Exception:
                 self.solicitudes = []
@@ -36,7 +39,10 @@ class GestorSolicitudes:
         os.makedirs("datos", exist_ok=True)
         with open(RUTA_DATOS, "w", encoding="utf-8") as f:
             json.dump(
-                {"solicitudes": self.solicitudes, "contador": self.contador},
+                {
+                    "solicitudes": [s.to_dict() for s in self.solicitudes],
+                    "contador": self.contador,
+                },
                 f,
                 ensure_ascii=False,
                 indent=2,
@@ -62,25 +68,24 @@ class GestorSolicitudes:
             print("ERROR: prioridad inválida")
             return None
 
-        # construcción con datos "primitivos" sueltos (Primitive Obsession)
-        fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
-        sol = {
-            "id": self.contador,
-            "nombre": nombre,
-            "apellido": apellido,
-            "legajo": legajo,
-            "tipo": tipo_enum.value,
-            "prioridad": prioridad_enum.value,
-            "detalle": detalle,
-            "estado": Estado.PENDIENTE.value,
-            "responsable": None,
-            "fecha": fecha,
-        }
+        try:
+            estudiante = Estudiante(nombre=nombre, apellido=apellido, legajo=legajo)
+            solicitud = Solicitud(
+                id=self.contador,
+                estudiante=estudiante,
+                tipo=tipo_enum,
+                prioridad=prioridad_enum,
+                detalle=detalle,
+            )
+        except ValueError as e:
+            print(f"ERROR: {e}")
+            return None
+
         self.contador += 1
-        self.solicitudes.append(sol)
+        self.solicitudes.append(solicitud)
         self.guardar()
-        print(f"Solicitud #{sol['id']} registrada")
-        return sol
+        print(f"Solicitud #{solicitud.id} registrada")
+        return solicitud
 
     # ---------- lógica repetida (Duplicated Code) ----------
     def cambiar_estado(self, id_solicitud, nuevo_estado):
@@ -89,8 +94,8 @@ class GestorSolicitudes:
             print("ERROR: estado inválido")
             return False
         for s in self.solicitudes:
-            if s["id"] == id_solicitud:
-                s["estado"] = estado_enum.value
+            if s.id == id_solicitud:
+                s.cambiar_estado(estado_enum)
                 self.guardar()
                 print(f"Solicitud #{id_solicitud} -> {estado_enum.value}")
                 return True
@@ -102,8 +107,12 @@ class GestorSolicitudes:
             print("ERROR: responsable vacío")
             return False
         for s in self.solicitudes:
-            if s["id"] == id_solicitud:
-                s["responsable"] = responsable
+            if s.id == id_solicitud:
+                try:
+                    s.asignar_responsable(responsable)
+                except ValueError as e:
+                    print(f"ERROR: {e}")
+                    return False
                 self.guardar()
                 print(f"Solicitud #{id_solicitud} asignada a {responsable}")
                 return True
@@ -116,27 +125,23 @@ class GestorSolicitudes:
         estado_enum = parse_estado(estado) if estado is not None else None
         prioridad_enum = parse_prioridad(prioridad) if prioridad is not None else None
 
-        resultados = []
-        for s in self.solicitudes:
-            coincide = True
-            if texto is not None:
-                t = texto.lower()
-                if not (
-                    t in s["nombre"].lower()
-                    or t in s["apellido"].lower()
-                    or t in s["detalle"].lower()
-                    or t in s["legajo"]
-                ):
-                    coincide = False
-            if tipo is not None and (tipo_enum is None or s["tipo"] != tipo_enum.value):
-                coincide = False
-            if estado is not None and (estado_enum is None or s["estado"] != estado_enum.value):
-                coincide = False
-            if prioridad is not None and (prioridad_enum is None or s["prioridad"] != prioridad_enum.value):
-                coincide = False
-            if coincide:
-                resultados.append(s)
-        return resultados
+        if tipo is not None and tipo_enum is None:
+            return []
+        if estado is not None and estado_enum is None:
+            return []
+        if prioridad is not None and prioridad_enum is None:
+            return []
+
+        return [
+            s
+            for s in self.solicitudes
+            if s.coincide_con(
+                texto=texto,
+                tipo=tipo_enum,
+                estado=estado_enum,
+                prioridad=prioridad_enum,
+            )
+        ]
 
     # ---------- reporte con formato hardcodeado y cálculo mezclado ----------
     def reporte(self):
@@ -145,9 +150,12 @@ class GestorSolicitudes:
         por_tipo = {}
         por_prioridad = {}
         for s in self.solicitudes:
-            por_estado[s["estado"]] = por_estado.get(s["estado"], 0) + 1
-            por_tipo[s["tipo"]] = por_tipo.get(s["tipo"], 0) + 1
-            por_prioridad[s["prioridad"]] = por_prioridad.get(s["prioridad"], 0) + 1
+            est = s.estado.value
+            tip = s.tipo.value
+            pri = s.prioridad.value
+            por_estado[est] = por_estado.get(est, 0) + 1
+            por_tipo[tip] = por_tipo.get(tip, 0) + 1
+            por_prioridad[pri] = por_prioridad.get(pri, 0) + 1
 
         print("=" * 40)
         print("REPORTE DE SOLICITUDES")
@@ -170,7 +178,7 @@ class GestorSolicitudes:
             return
         for s in self.solicitudes:
             print(
-                f"#{s['id']} | {s['apellido']}, {s['nombre']} | "
-                f"{s['tipo']} | {s['prioridad']} | {s['estado']} | "
-                f"resp: {s['responsable']}"
+                f"#{s.id} | {s.estudiante.apellido}, {s.estudiante.nombre} | "
+                f"{s.tipo.value} | {s.prioridad.value} | {s.estado.value} | "
+                f"resp: {s.responsable}"
             )
