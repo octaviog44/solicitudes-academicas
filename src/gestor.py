@@ -1,5 +1,5 @@
 # src/gestor.py
-# Versión refactorizada - Commit 3: Extract Method -> ValidadorSolicitud
+# Versión refactorizada - Commit 4: Introduce Parameter Object -> SolicitudRequest
 import json
 import os
 
@@ -7,6 +7,7 @@ from dominio import (
     Estado,
     Estudiante,
     Solicitud,
+    SolicitudRequest,
     parse_estado,
     parse_prioridad,
     parse_tipo,
@@ -51,23 +52,25 @@ class GestorSolicitudes:
             )
 
     # ---------- registro ----------
-    def registrar_solicitud(self, nombre, apellido, legajo, tipo, prioridad, detalle):
+    def registrar_solicitud(self, request: SolicitudRequest):
         try:
-            self.validador.validar_datos_basicos(nombre, apellido, legajo)
-            tipo_enum = self.validador.validar_tipo(tipo)
-            prioridad_enum = self.validador.validar_prioridad(prioridad)
+            tipo_enum, prioridad_enum = self.validador.validar(request)
         except ValueError as e:
             print(f"ERROR: {e}")
             return None
 
         try:
-            estudiante = Estudiante(nombre=nombre, apellido=apellido, legajo=legajo)
+            estudiante = Estudiante(
+                nombre=request.nombre,
+                apellido=request.apellido,
+                legajo=request.legajo,
+            )
             solicitud = Solicitud(
                 id=self.contador,
                 estudiante=estudiante,
                 tipo=tipo_enum,
                 prioridad=prioridad_enum,
-                detalle=detalle,
+                detalle=request.detalle,
             )
         except ValueError as e:
             print(f"ERROR: {e}")

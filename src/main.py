@@ -1,4 +1,6 @@
 # src/main.py
+# Commit 4: Introduce Parameter Object -> SolicitudRequest
+from dominio import SolicitudRequest
 from gestor import GestorSolicitudes
 
 
@@ -22,7 +24,15 @@ def main():
             tipo = input("Tipo (beca/cambio_carrera/regularidad/examen/otro): ").strip()
             prioridad = input("Prioridad (alta/media/baja): ").strip()
             detalle = input("Detalle: ").strip()
-            g.registrar_solicitud(nombre, apellido, legajo, tipo, prioridad, detalle)
+            request = SolicitudRequest(
+                nombre=nombre,
+                apellido=apellido,
+                legajo=legajo,
+                tipo=tipo,
+                prioridad=prioridad,
+                detalle=detalle,
+            )
+            g.registrar_solicitud(request)
         elif op == "2":
             try:
                 id_s = int(input("ID solicitud: ").strip())

@@ -1,4 +1,6 @@
-
+# src/dominio.py
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
 
@@ -24,7 +26,6 @@ class Estado(str, Enum):
 
 
 def parse_tipo(valor: str) -> TipoSolicitud | None:
-    """Devuelve el TipoSolicitud correspondiente o None si no es válido."""
     try:
         return TipoSolicitud(valor)
     except ValueError:
@@ -46,10 +47,6 @@ def parse_estado(valor: str) -> Estado | None:
 
 
 # ---------- Modelo de dominio ----------
-from dataclasses import dataclass, field
-from datetime import datetime
-
-
 @dataclass(frozen=True)
 class Estudiante:
     nombre: str
@@ -61,6 +58,17 @@ class Estudiante:
             raise ValueError("nombre y apellido son obligatorios")
         if not self.legajo.isdigit():
             raise ValueError("legajo inválido")
+
+
+@dataclass(frozen=True)
+class SolicitudRequest:
+    """Objeto de transporte con los datos crudos que llegan de la UI."""
+    nombre: str
+    apellido: str
+    legajo: str
+    tipo: str
+    prioridad: str
+    detalle: str
 
 
 class Solicitud:
@@ -86,7 +94,6 @@ class Solicitud:
         self.responsable = responsable
         self.fecha = fecha or datetime.now()
 
-    # ---- comportamiento de negocio ----
     def cambiar_estado(self, nuevo_estado: Estado) -> None:
         self.estado = nuevo_estado
 
@@ -95,7 +102,6 @@ class Solicitud:
             raise ValueError("responsable vacío")
         self.responsable = responsable
 
-    # ---- búsqueda: el modelo sabe si coincide con un filtro ----
     def coincide_con(
         self,
         texto: str | None = None,
@@ -120,7 +126,6 @@ class Solicitud:
             return False
         return True
 
-    # ---- serialización: mismo formato plano que antes ----
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -158,4 +163,4 @@ class Solicitud:
             f"Solicitud(id={self.id}, "
             f"estudiante={self.estudiante.apellido}, "
             f"tipo={self.tipo.value}, estado={self.estado.value})"
-        )    
+        )
