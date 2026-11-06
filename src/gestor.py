@@ -1,8 +1,15 @@
 # src/gestor.py
-# VERSIÓN INICIAL - contiene problemas de diseño deliberados (deuda técnica)
+# Versión refactorizada - Commit 1: Replace Magic Strings -> Enums
 import json
 import os
 from datetime import datetime
+
+from dominio import (
+    Estado,
+    parse_estado,
+    parse_prioridad,
+    parse_tipo,
+)
 
 RUTA_DATOS = "datos/solicitudes.json"
 
@@ -44,10 +51,14 @@ class GestorSolicitudes:
         if legajo == "" or not legajo.isdigit():
             print("ERROR: legajo inválido")
             return None
-        if tipo not in ["beca", "cambio_carrera", "regularidad", "examen", "otro"]:
+
+        tipo_enum = parse_tipo(tipo)
+        if tipo_enum is None:
             print("ERROR: tipo inválido")
             return None
-        if prioridad not in ["alta", "media", "baja"]:
+
+        prioridad_enum = parse_prioridad(prioridad)
+        if prioridad_enum is None:
             print("ERROR: prioridad inválida")
             return None
 
@@ -58,10 +69,10 @@ class GestorSolicitudes:
             "nombre": nombre,
             "apellido": apellido,
             "legajo": legajo,
-            "tipo": tipo,
-            "prioridad": prioridad,
+            "tipo": tipo_enum.value,
+            "prioridad": prioridad_enum.value,
             "detalle": detalle,
-            "estado": "pendiente",
+            "estado": Estado.PENDIENTE.value,
             "responsable": None,
             "fecha": fecha,
         }
@@ -73,14 +84,15 @@ class GestorSolicitudes:
 
     # ---------- lógica repetida (Duplicated Code) ----------
     def cambiar_estado(self, id_solicitud, nuevo_estado):
-        if nuevo_estado not in ["pendiente", "en_proceso", "resuelta", "rechazada"]:
+        estado_enum = parse_estado(nuevo_estado)
+        if estado_enum is None:
             print("ERROR: estado inválido")
             return False
         for s in self.solicitudes:
             if s["id"] == id_solicitud:
-                s["estado"] = nuevo_estado
+                s["estado"] = estado_enum.value
                 self.guardar()
-                print(f"Solicitud #{id_solicitud} -> {nuevo_estado}")
+                print(f"Solicitud #{id_solicitud} -> {estado_enum.value}")
                 return True
         print("ERROR: solicitud no encontrada")
         return False
@@ -100,6 +112,10 @@ class GestorSolicitudes:
 
     # ---------- FEATURE ENVY + lógica de filtrado mezclada ----------
     def buscar(self, texto=None, tipo=None, estado=None, prioridad=None):
+        tipo_enum = parse_tipo(tipo) if tipo is not None else None
+        estado_enum = parse_estado(estado) if estado is not None else None
+        prioridad_enum = parse_prioridad(prioridad) if prioridad is not None else None
+
         resultados = []
         for s in self.solicitudes:
             coincide = True
@@ -112,11 +128,11 @@ class GestorSolicitudes:
                     or t in s["legajo"]
                 ):
                     coincide = False
-            if tipo is not None and s["tipo"] != tipo:
+            if tipo is not None and (tipo_enum is None or s["tipo"] != tipo_enum.value):
                 coincide = False
-            if estado is not None and s["estado"] != estado:
+            if estado is not None and (estado_enum is None or s["estado"] != estado_enum.value):
                 coincide = False
-            if prioridad is not None and s["prioridad"] != prioridad:
+            if prioridad is not None and (prioridad_enum is None or s["prioridad"] != prioridad_enum.value):
                 coincide = False
             if coincide:
                 resultados.append(s)
