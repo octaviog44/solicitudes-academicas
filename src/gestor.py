@@ -1,5 +1,5 @@
 # src/gestor.py
-# Versión refactorizada - Commit 2: Extract Class -> Solicitud con invariantes
+# Versión refactorizada - Commit 3: Extract Method -> ValidadorSolicitud
 import json
 import os
 
@@ -11,6 +11,7 @@ from dominio import (
     parse_prioridad,
     parse_tipo,
 )
+from validador import ValidadorSolicitud
 
 RUTA_DATOS = "datos/solicitudes.json"
 
@@ -19,9 +20,10 @@ class GestorSolicitudes:
     def __init__(self):
         self.solicitudes: list[Solicitud] = []
         self.contador = 1
+        self.validador = ValidadorSolicitud()
         self.cargar()
 
-    # ---------- persistencia mezclada con lógica ----------
+    # ---------- persistencia ----------
     def cargar(self):
         if os.path.exists(RUTA_DATOS):
             try:
@@ -48,24 +50,14 @@ class GestorSolicitudes:
                 indent=2,
             )
 
-    # ---------- LONG METHOD: hace TODO ----------
+    # ---------- registro ----------
     def registrar_solicitud(self, nombre, apellido, legajo, tipo, prioridad, detalle):
-        # validaciones mezcladas y repetidas
-        if nombre == "" or apellido == "":
-            print("ERROR: nombre y apellido obligatorios")
-            return None
-        if legajo == "" or not legajo.isdigit():
-            print("ERROR: legajo inválido")
-            return None
-
-        tipo_enum = parse_tipo(tipo)
-        if tipo_enum is None:
-            print("ERROR: tipo inválido")
-            return None
-
-        prioridad_enum = parse_prioridad(prioridad)
-        if prioridad_enum is None:
-            print("ERROR: prioridad inválida")
+        try:
+            self.validador.validar_datos_basicos(nombre, apellido, legajo)
+            tipo_enum = self.validador.validar_tipo(tipo)
+            prioridad_enum = self.validador.validar_prioridad(prioridad)
+        except ValueError as e:
+            print(f"ERROR: {e}")
             return None
 
         try:
@@ -87,12 +79,14 @@ class GestorSolicitudes:
         print(f"Solicitud #{solicitud.id} registrada")
         return solicitud
 
-    # ---------- lógica repetida (Duplicated Code) ----------
+    # ---------- cambio de estado ----------
     def cambiar_estado(self, id_solicitud, nuevo_estado):
-        estado_enum = parse_estado(nuevo_estado)
-        if estado_enum is None:
-            print("ERROR: estado inválido")
+        try:
+            estado_enum = self.validador.validar_estado(nuevo_estado)
+        except ValueError as e:
+            print(f"ERROR: {e}")
             return False
+
         for s in self.solicitudes:
             if s.id == id_solicitud:
                 s.cambiar_estado(estado_enum)
@@ -102,24 +96,24 @@ class GestorSolicitudes:
         print("ERROR: solicitud no encontrada")
         return False
 
+    # ---------- asignación de responsable ----------
     def asignar_responsable(self, id_solicitud, responsable):
-        if responsable == "":
-            print("ERROR: responsable vacío")
+        try:
+            self.validador.validar_responsable(responsable)
+        except ValueError as e:
+            print(f"ERROR: {e}")
             return False
+
         for s in self.solicitudes:
             if s.id == id_solicitud:
-                try:
-                    s.asignar_responsable(responsable)
-                except ValueError as e:
-                    print(f"ERROR: {e}")
-                    return False
+                s.asignar_responsable(responsable)
                 self.guardar()
                 print(f"Solicitud #{id_solicitud} asignada a {responsable}")
                 return True
         print("ERROR: solicitud no encontrada")
         return False
 
-    # ---------- FEATURE ENVY + lógica de filtrado mezclada ----------
+    # ---------- búsqueda ----------
     def buscar(self, texto=None, tipo=None, estado=None, prioridad=None):
         tipo_enum = parse_tipo(tipo) if tipo is not None else None
         estado_enum = parse_estado(estado) if estado is not None else None
@@ -143,7 +137,7 @@ class GestorSolicitudes:
             )
         ]
 
-    # ---------- reporte con formato hardcodeado y cálculo mezclado ----------
+    # ---------- reporte ----------
     def reporte(self):
         total = len(self.solicitudes)
         por_estado = {}
@@ -172,6 +166,7 @@ class GestorSolicitudes:
             print(f"  {k}: {v}")
         print("=" * 40)
 
+    # ---------- listado ----------
     def listar(self):
         if not self.solicitudes:
             print("(sin solicitudes)")
