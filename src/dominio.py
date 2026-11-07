@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
+from excepciones import SolicitudInvalidaError
+
 
 class TipoSolicitud(str, Enum):
     BECA = "beca"
@@ -55,9 +57,9 @@ class Estudiante:
 
     def __post_init__(self):
         if not self.nombre or not self.apellido:
-            raise ValueError("nombre y apellido son obligatorios")
+            raise SolicitudInvalidaError("nombre y apellido son obligatorios")
         if not self.legajo.isdigit():
-            raise ValueError("legajo inválido")
+            raise SolicitudInvalidaError("legajo inválido")
 
 
 @dataclass(frozen=True)
@@ -84,7 +86,7 @@ class Solicitud:
         fecha: datetime | None = None,
     ):
         if id <= 0:
-            raise ValueError("id debe ser positivo")
+            raise SolicitudInvalidaError("id debe ser positivo")
         self.id = id
         self.estudiante = estudiante
         self.tipo = tipo
@@ -99,7 +101,7 @@ class Solicitud:
 
     def asignar_responsable(self, responsable: str) -> None:
         if not responsable:
-            raise ValueError("responsable vacío")
+            raise SolicitudInvalidaError("responsable vacío")
         self.responsable = responsable
 
     def coincide_con(
