@@ -1,8 +1,5 @@
 # src/gestor.py
-# Versión refactorizada - Commit 4: Introduce Parameter Object -> SolicitudRequest
-import json
-import os
-
+# Versión refactorizada - Commit 5: Move Method -> RepositorioSolicitudes
 from dominio import (
     Estado,
     Estudiante,
@@ -12,44 +9,19 @@ from dominio import (
     parse_prioridad,
     parse_tipo,
 )
+from repositorio import RepositorioSolicitudes
 from validador import ValidadorSolicitud
-
-RUTA_DATOS = "datos/solicitudes.json"
 
 
 class GestorSolicitudes:
-    def __init__(self):
-        self.solicitudes: list[Solicitud] = []
-        self.contador = 1
+    def __init__(self, repositorio: RepositorioSolicitudes):
+        self.repositorio = repositorio
         self.validador = ValidadorSolicitud()
-        self.cargar()
+        self.solicitudes, self.contador = self.repositorio.cargar()
 
-    # ---------- persistencia ----------
-    def cargar(self):
-        if os.path.exists(RUTA_DATOS):
-            try:
-                with open(RUTA_DATOS, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    self.solicitudes = [
-                        Solicitud.from_dict(s) for s in data.get("solicitudes", [])
-                    ]
-                    self.contador = data.get("contador", 1)
-            except Exception:
-                self.solicitudes = []
-                self.contador = 1
-
-    def guardar(self):
-        os.makedirs("datos", exist_ok=True)
-        with open(RUTA_DATOS, "w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "solicitudes": [s.to_dict() for s in self.solicitudes],
-                    "contador": self.contador,
-                },
-                f,
-                ensure_ascii=False,
-                indent=2,
-            )
+    # ---------- persistencia delegada ----------
+    def _persistir(self):
+        self.repositorio.guardar(self.solicitudes, self.contador)
 
     # ---------- registro ----------
     def registrar_solicitud(self, request: SolicitudRequest):
@@ -78,7 +50,7 @@ class GestorSolicitudes:
 
         self.contador += 1
         self.solicitudes.append(solicitud)
-        self.guardar()
+        self._persistir()
         print(f"Solicitud #{solicitud.id} registrada")
         return solicitud
 
@@ -93,7 +65,7 @@ class GestorSolicitudes:
         for s in self.solicitudes:
             if s.id == id_solicitud:
                 s.cambiar_estado(estado_enum)
-                self.guardar()
+                self._persistir()
                 print(f"Solicitud #{id_solicitud} -> {estado_enum.value}")
                 return True
         print("ERROR: solicitud no encontrada")
@@ -110,7 +82,7 @@ class GestorSolicitudes:
         for s in self.solicitudes:
             if s.id == id_solicitud:
                 s.asignar_responsable(responsable)
-                self.guardar()
+                self._persistir()
                 print(f"Solicitud #{id_solicitud} asignada a {responsable}")
                 return True
         print("ERROR: solicitud no encontrada")

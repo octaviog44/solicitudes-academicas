@@ -1,11 +1,15 @@
 # src/main.py
-# Commit 4: Introduce Parameter Object -> SolicitudRequest
+# Commit 5: Move Method -> RepositorioSolicitudes
 from dominio import SolicitudRequest
 from gestor import GestorSolicitudes
+from repositorio import RepositorioJSON
+
+RUTA_DATOS = "datos/solicitudes.json"
 
 
 def main():
-    g = GestorSolicitudes()
+    repositorio = RepositorioJSON(RUTA_DATOS)
+    g = GestorSolicitudes(repositorio)
     while True:
         print("\n--- GESTIÓN DE SOLICITUDES ACADÉMICAS ---")
         print("1. Registrar solicitud")
