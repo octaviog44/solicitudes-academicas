@@ -51,3 +51,17 @@ class RepositorioJSON(RepositorioSolicitudes):
                 ensure_ascii=False,
                 indent=2,
             )
+
+class RepositorioMemoria(RepositorioSolicitudes):
+    """Implementación en memoria, útil para tests y demos sin persistencia."""
+
+    def __init__(self):
+        self._solicitudes: list[Solicitud] = []
+        self._contador: int = 1
+
+    def cargar(self) -> tuple[list[Solicitud], int]:
+        return list(self._solicitudes), self._contador
+
+    def guardar(self, solicitudes: list[Solicitud], contador: int) -> None:
+        self._solicitudes = list(solicitudes)
+        self._contador = contador
